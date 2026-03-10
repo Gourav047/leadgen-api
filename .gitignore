@@ -1,8 +1,43 @@
-node_modules
-# Keep environment variables out of version control
+# Dependencies
+node_modules/
+
+# Build output — never commit compiled files
+dist/
+
+# Environment — never commit real credentials
 .env
+.env.*
+*.env
+*.local
 
+# Prisma generated client
 /src/generated/prisma
 
-/src/generated/prisma
+# Logs
 logs/
+*.log
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Certificates & private keys
+*.pem
+*.key
+*.p12
+*.pfx
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation / business files (keep out of source control)
+*.pdf
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
