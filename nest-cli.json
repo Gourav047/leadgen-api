@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "assets": [
+      "src/**/*.hbs"
+    ],
+    "watchAssets": true,
+    "type": "project",
+    "sourceRoot": "src"
+  }
+}

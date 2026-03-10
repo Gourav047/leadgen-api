@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum PlanType {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
+model Tenant {
+  id          String       @id @default(uuid())
+  name        String
+
+  plan               PlanType            @default(FREE)
+  stripeCustomerId   String?             @unique
+  stripeSubId        String?             @unique
+  subStatus          SubscriptionStatus?
+  currentPeriodEnd   DateTime?
+
+  users       User[]
+  leads       Lead[]
+  invitations Invitation[]
+  apiKeys     ApiKey[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdAt])
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String
+  email     String   @unique
+  password  String
+
+  role      UserRole @default(MEMBER)
+
+  // Account lockout
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  leads               Lead[]     @relation("LeadCreator")
+  assignedLeads       Lead[]     @relation("LeadAssignee")
+  leadNotes           LeadNote[]
+  passwordResetTokens PasswordResetToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+model Invitation {
+  id        String       @id @default(uuid())
+  email     String
+  role      UserRole     @default(MEMBER)
+  token     String       @unique
+  status    InviteStatus @default(PENDING)
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id])
+  invitedBy String
+  expiresAt DateTime
+  createdAt DateTime     @default(now())
+
+  @@index([tenantId])
+  @@index([token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
+enum AuditAction {
+  LEAD_CREATED
+  LEAD_UPDATED
+  LEAD_DELETED
+  LEAD_ASSIGNED
+  LEAD_NOTE_CREATED
+  LEAD_NOTE_UPDATED
+  LEAD_NOTE_DELETED
+  TAG_CREATED
+  TAG_DELETED
+  LEAD_TAG_ADDED
+  LEAD_TAG_REMOVED
+  ROLE_CHANGED
+  MEMBER_REMOVED
+  TENANT_CREATED
+  USER_CREATED
+  API_KEY_CREATED
+  API_KEY_REVOKED
+}
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  actorId    String?
+  actorRole  String?
+  action     AuditAction
+  entityType String
+  entityId   String
+  changes    Json?
+  tenantId   String
+
+  createdAt  DateTime    @default(now())
+
+  @@index([tenantId, entityId])
+  @@index([tenantId, entityType])
+  @@index([tenantId, createdAt])
+  @@index([actorId])
+}
+
+model Lead {
+  id        String      @id @default(uuid())
+  name      String
+  email     String
+  company   String?
+  status    LeadStatus  @default(NEW)
+
+  userId    String
+  user      User        @relation("LeadCreator", fields: [userId], references: [id])
+
+  assignedToId String?
+  assignedTo   User?      @relation("LeadAssignee", fields: [assignedToId], references: [id])
+  assignedAt   DateTime?
+
+  notes     LeadNote[]
+  tags      LeadTag[]
+
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id])
+
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, deletedAt])
+  @@index([tenantId, createdAt])
+  @@index([userId])
+  @@index([assignedToId])
+}
+
+model LeadNote {
+  id      String @id @default(uuid())
+  content String
+
+  leadId  String
+  lead    Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+
+  tenantId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([tenantId])
+  @@index([userId])
+}
+
+model Tag {
+  id       String @id @default(uuid())
+  name     String
+
+  tenantId String
+
+  leads    LeadTag[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model ApiKey {
+  id         String    @id @default(uuid())
+  name       String
+  keyHash    String    @unique
+  keyPrefix  String
+  role       UserRole  @default(MEMBER)
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  createdBy  String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+model LeadTag {
+  leadId String
+  lead   Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  tagId  String
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  assignedAt DateTime @default(now())
+
+  @@id([leadId, tagId])
+  @@index([tagId])
+}

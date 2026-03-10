@@ -1,0 +1,33 @@
+node_modules
+dist
+coverage
+
+# Environment files — never bake secrets into image layers
+.env
+.env.*
+!.env.example
+
+# Logs — unbounded growth, not needed in build context
+logs
+*.log
+
+# Documentation
+*.md
+*.pdf
+README*
+
+# Test artifacts
+jest-coverage
+.nyc_output
+
+# Editor and OS artifacts
+.git
+.gitignore
+.vscode
+.idea
+*.DS_Store
+Thumbs.db
+
+# Docker files
+docker-compose*.yml
+.dockerignore
