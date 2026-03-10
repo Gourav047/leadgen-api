@@ -12,15 +12,25 @@ import { PLAN_LIMITS } from '../../common/constants/plan-limits';
 
 @Injectable()
 export class BillingService {
-  private readonly stripe: Stripe;
+  private readonly stripe: Stripe | null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
-    this.stripe = new Stripe(this.config.get<string>('STRIPE_SECRET_KEY') ?? '', {
-      apiVersion: '2026-02-25.clover',
-    });
+    const stripeKey = this.config.get<string>('STRIPE_SECRET_KEY');
+    this.stripe = stripeKey
+      ? new Stripe(stripeKey, { apiVersion: '2026-02-25.clover' })
+      : null;
+  }
+
+  private get stripeClient(): Stripe {
+    if (!this.stripe) {
+      throw new BadRequestException(
+        'Stripe is not configured. Set STRIPE_SECRET_KEY in your environment.',
+      );
+    }
+    return this.stripe;
   }
 
   async getSubscription(user: any) {
@@ -50,7 +60,7 @@ export class BillingService {
     // Get or create Stripe customer
     let customerId = tenant.stripeCustomerId;
     if (!customerId) {
-      const customer = await this.stripe.customers.create({
+      const customer = await this.stripeClient.customers.create({
         email:    user.email,
         metadata: { tenantId: user.tenantId },
       });
@@ -61,7 +71,7 @@ export class BillingService {
       });
     }
 
-    const session = await this.stripe.checkout.sessions.create({
+    const session = await this.stripeClient.checkout.sessions.create({
       customer:   customerId,
       mode:       'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
@@ -85,7 +95,7 @@ export class BillingService {
 
     const frontendUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:4200';
 
-    const session = await this.stripe.billingPortal.sessions.create({
+    const session = await this.stripeClient.billingPortal.sessions.create({
       customer:   tenant.stripeCustomerId,
       return_url: `${frontendUrl}/billing`,
     });
@@ -98,7 +108,7 @@ export class BillingService {
 
     let event: Stripe.Event;
     try {
-      event = this.stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+      event = this.stripeClient.webhooks.constructEvent(rawBody, signature, webhookSecret);
     } catch {
       throw new BadRequestException('Invalid Stripe webhook signature');
     }
@@ -109,7 +119,7 @@ export class BillingService {
         const tenantId = session.metadata?.tenantId;
         if (!tenantId || !session.subscription) break;
 
-        const sub = await this.stripe.subscriptions.retrieve(session.subscription as string);
+        const sub = await this.stripeClient.subscriptions.retrieve(session.subscription as string);
         await this.prisma.tenant.update({
           where: { id: tenantId },
           data: {

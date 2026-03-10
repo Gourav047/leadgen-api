@@ -24,14 +24,15 @@ export const envValidationSchema = Joi.object({
   FRONTEND_URL: Joi.string().uri().default('http://localhost:4200'),
 
   // Stripe billing — optional (FREE plan works without these)
-  STRIPE_SECRET_KEY:          Joi.string().pattern(/^sk_/).optional(),
-  STRIPE_WEBHOOK_SECRET:      Joi.string().pattern(/^whsec_/).optional(),
-  STRIPE_PRO_PRICE_ID:        Joi.string().pattern(/^price_/).optional(),
-  STRIPE_ENTERPRISE_PRICE_ID: Joi.string().pattern(/^price_/).optional(),
+  // Allow empty string so developers can leave KEY= blank in .env
+  STRIPE_SECRET_KEY:          Joi.string().pattern(/^sk_/).allow('').optional(),
+  STRIPE_WEBHOOK_SECRET:      Joi.string().pattern(/^whsec_/).allow('').optional(),
+  STRIPE_PRO_PRICE_ID:        Joi.string().pattern(/^price_/).allow('').optional(),
+  STRIPE_ENTERPRISE_PRICE_ID: Joi.string().pattern(/^price_/).allow('').optional(),
 
   // AI / vector features — optional, no default
-  OPENAI_API_KEY:    Joi.string().pattern(/^sk-/).optional(),
-  CHROMA_URL:        Joi.string().uri().optional(),
+  OPENAI_API_KEY:    Joi.string().pattern(/^sk-/).allow('').optional(),
+  CHROMA_URL:        Joi.string().uri().allow('').optional(),
   CHROMA_COLLECTION: Joi.string().optional(),
 
   // Test-only — never required in production
